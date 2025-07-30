@@ -7,8 +7,6 @@ import httpStatus from "http-status-codes";
 
 const createUser = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
-    const { requestedRides, acceptedRides, role, ...rest } = req.body;
-
     const user = await UserServices.createUser(req.body);
 
     sendResponse(res, {

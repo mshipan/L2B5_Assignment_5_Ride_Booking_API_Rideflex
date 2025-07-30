@@ -20,7 +20,7 @@ export enum ApprovalStatus {
 }
 
 export interface IAuthProvider {
-  provider: "google" | "credentials";
+  provider: "credentials";
   providerId: string;
 }
 
@@ -29,20 +29,34 @@ export interface IUser {
   name: string;
   email: string;
   password?: string;
+  role: Role;
   phone?: string;
-  picture?: string;
   address?: string;
   isDeleted?: boolean;
   isActive?: IsActive;
   isVerified: boolean;
-  role: Role;
   auths: IAuthProvider[];
-  requestedRides?: Types.ObjectId[];
-  acceptedRides?: Types.ObjectId[];
+}
+
+export interface IRider extends IUser {
+  role: Role.RIDER;
+  requestedRideId?: string | null;
+  rideHistory?: Types.ObjectId[];
+}
+
+export interface IDriver extends IUser {
+  role: Role.DRIVER;
+  approvalStatus?: ApprovalStatus;
+  isOnline?: boolean;
+  currentRideId?: string | null;
+  acceptedRideHistory?: Types.ObjectId[];
+  earnings?: number;
   vehicleInfo?: {
     model: string;
     plateNumber: string;
   };
-  isOnline?: boolean;
-  approvalStatus?: ApprovalStatus;
+}
+
+export interface IAdmin extends IUser {
+  role: Role.ADMIN;
 }

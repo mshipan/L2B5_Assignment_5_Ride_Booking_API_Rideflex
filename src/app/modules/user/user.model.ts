@@ -1,11 +1,5 @@
 import { model, Schema } from "mongoose";
-import {
-  ApprovalStatus,
-  IAuthProvider,
-  IsActive,
-  IUser,
-  Role,
-} from "./user.interface";
+import { IAuthProvider, IsActive, IUser, Role } from "./user.interface";
 
 const authProviderSchema = new Schema<IAuthProvider>(
   {
@@ -21,7 +15,6 @@ const userSchema = new Schema<IUser>(
     email: { type: String, required: true, unique: true },
     password: { type: String },
     phone: { type: String },
-    picture: { type: String },
     address: { type: String },
     isDeleted: { type: Boolean, default: false },
     isActive: {
@@ -32,17 +25,6 @@ const userSchema = new Schema<IUser>(
     isVerified: { type: Boolean, default: false },
     role: { type: String, enum: Object.values(Role), default: Role.RIDER },
     auths: [authProviderSchema],
-    // requestedRides: [{ type: Types.ObjectId, ref: "Ride" }],
-    // acceptedRides: [{ type: Types.ObjectId, ref: "Ride" }],
-    vehicleInfo: {
-      model: { type: String },
-      plateNumber: { type: String },
-    },
-    isOnline: { type: Boolean },
-    approvalStatus: {
-      type: String,
-      enum: Object.values(ApprovalStatus),
-    },
   },
   {
     timestamps: true,

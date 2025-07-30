@@ -1,12 +1,20 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import AppError from "../../errorHelpers/AppError";
-import { IAuthProvider, IUser } from "./user.interface";
+import {
+  ApprovalStatus,
+  IAuthProvider,
+  IDriver,
+  IRider,
+  IUser,
+  Role,
+} from "./user.interface";
 import { User } from "./user.model";
 import httpStatus from "http-status-codes";
 import bcrypt from "bcryptjs";
 import { envVars } from "../../config/env";
 
 const createUser = async (payload: Partial<IUser>) => {
-  const { email, password, ...rest } = payload;
+  const { email, password, role = Role.RIDER, ...rest } = payload;
 
   if (!email || !password) {
     throw new AppError(
@@ -31,12 +39,38 @@ const createUser = async (payload: Partial<IUser>) => {
     providerId: email as string,
   };
 
-  const user = await User.create({
-    email,
-    auths: [authProvider],
-    password: hashedPassword,
+  const commonUser = {
     ...rest,
-  });
+    email,
+    password: hashedPassword,
+    role,
+    auths: [authProvider],
+  };
+
+  let finalData: any = { ...commonUser };
+
+  if (role === Role.RIDER) {
+    const riderData: IRider = {
+      ...finalData,
+      requestedRideId: null,
+      rideHistory: [],
+    };
+    finalData = riderData;
+  } else if (role === Role.DRIVER) {
+    const driverData: IDriver = {
+      ...finalData,
+      approvalStatus: ApprovalStatus.PENDING,
+      isOnline: false,
+      currentRideId: null,
+      acceptedRideHistory: [],
+      earnings: 0,
+      vehicleInfo: (payload as Partial<IDriver>).vehicleInfo,
+    };
+    finalData = driverData;
+  }
+
+  const user = new User(finalData);
+  await user.save();
 
   return user;
 };
