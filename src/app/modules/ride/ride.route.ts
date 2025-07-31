@@ -9,9 +9,33 @@ const router = Router();
 
 router.post(
   "/",
-  checkAuth(...Object.values(Role)),
+  checkAuth(Role.RIDER),
   validateRequest(createRideZodSchema),
   RideController.createRide
 );
+
+router.get("/my-rides", checkAuth(Role.RIDER), RideController.getMyRides);
+
+router.patch("/:id/accept", checkAuth(Role.DRIVER), RideController.acceptRide);
+
+router.patch(
+  "/:id/complete",
+  checkAuth(Role.DRIVER),
+  RideController.completeRide
+);
+
+router.patch(
+  "/:id/cancel",
+  checkAuth(Role.RIDER, Role.DRIVER),
+  RideController.cancelRide
+);
+
+router.get(
+  "/available",
+  checkAuth(Role.DRIVER),
+  RideController.getAvailableRides
+);
+
+router.get("/all-rides", checkAuth(Role.ADMIN), RideController.getAllRides);
 
 export const RideRoutes = router;
