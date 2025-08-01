@@ -15,9 +15,19 @@ export interface IRide {
   pickupLocation: string;
   destinationLocation: string;
   fare?: number;
+  distanceInKm?: number;
+  durationInMinutes?: number;
   status?: RideStatus;
   requestedAt?: Date;
   pickedUpAt?: Date;
   completedAt?: Date;
   cancelledAt?: Date;
+}
+
+export interface RideQueryParams {
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+  page: number;
+  limit: number;
 }

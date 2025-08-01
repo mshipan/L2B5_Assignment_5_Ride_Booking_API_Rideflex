@@ -1,9 +1,12 @@
-import { Types } from "mongoose";
+import { isValidObjectId, Types } from "mongoose";
 import AppError from "../../errorHelpers/AppError";
 import { Role } from "../user/user.interface";
 import { IRide, RideStatus } from "./ride.interface";
 import { Ride } from "./ride.model";
 import httpStatus from "http-status-codes";
+import { calculateFare } from "../../utils/calculateFare";
+import { JwtPayload } from "jsonwebtoken";
+import { User } from "../user/user.model";
 
 const createRide = async (
   riderId: string,
@@ -58,6 +61,26 @@ const createRide = async (
     status: RideStatus.REQUESTED,
     requestedAt: new Date(),
   });
+
+  return ride;
+};
+
+const getRideById = async (rideId: string, user: JwtPayload) => {
+  const ride = await Ride.findById(rideId).populate("rider").populate("driver");
+
+  if (!ride) {
+    throw new AppError(httpStatus.NOT_FOUND, "Ride not found.");
+  }
+
+  if (
+    (user.role === Role.RIDER && ride.rider?._id?.toString() !== user.userId) ||
+    (user.role === Role.DRIVER && ride.driver?._id?.toString() !== user.userId)
+  ) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "You are not authorized to view this ride."
+    );
+  }
 
   return ride;
 };
@@ -128,8 +151,17 @@ const completeRide = async (rideId: string, driverId: string) => {
     );
   }
 
+  const distance = ride.distanceInKm ?? 0;
+  const duration = ride.durationInMinutes ?? 0;
+
+  const fare = calculateFare({
+    distanceInKm: distance,
+    durationInMinutes: duration,
+  });
+
   ride.status = RideStatus.COMPLETED;
   ride.completedAt = new Date();
+  ride.fare = fare;
 
   await ride.save();
 
@@ -200,12 +232,45 @@ const getAllRides = async () => {
   return rides;
 };
 
+const getRiderRideHistory = async (riderId: string) => {
+  if (!isValidObjectId(riderId)) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Invalid rider ID.");
+  }
+
+  const rider = await User.findById(riderId);
+
+  if (!rider || rider.role !== Role.RIDER) {
+    throw new AppError(httpStatus.NOT_FOUND, "Rider not found.");
+  }
+
+  const rides = await Ride.find({ rider: riderId })
+    .populate("driver", "name email")
+    .sort({ createdAt: -1 });
+
+  return rides;
+};
+
+const getDriverRideHistory = async (driverId: string) => {
+  if (!Types.ObjectId.isValid(driverId)) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Invalid driver ID.");
+  }
+
+  const rides = await Ride.find({ driver: driverId })
+    .populate("rider", "name email")
+    .sort({ createdAt: -1 });
+
+  return rides;
+};
+
 export const RideServices = {
   createRide,
+  getRideById,
   getMyRides,
   acceptRide,
   completeRide,
   cancelRide,
   getAvailableRides,
   getAllRides,
+  getRiderRideHistory,
+  getDriverRideHistory,
 };

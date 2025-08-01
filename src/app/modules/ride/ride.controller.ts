@@ -25,6 +25,20 @@ const createRide = catchAsync(
   }
 );
 
+const getRideById = catchAsync(async (req: Request, res: Response) => {
+  const rideId = req.params.id;
+  const user = req.user;
+
+  const ride = await RideServices.getRideById(rideId, user as JwtPayload);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Ride details fetched successfully.",
+    data: ride,
+  });
+});
+
 const getMyRides = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as JwtPayload;
 
@@ -108,12 +122,42 @@ const getAllRides = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getRiderRideHistory = catchAsync(async (req: Request, res: Response) => {
+  const rider = req.user as JwtPayload;
+  const riderId = rider.userId;
+
+  const rides = await RideServices.getRiderRideHistory(riderId);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Rider ride history fetched successfylly.",
+    data: rides,
+  });
+});
+
+const getDriverRideHistory = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user as JwtPayload;
+
+  const rides = await RideServices.getDriverRideHistory(user.userId);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Driver ride history retrieved successfully.",
+    data: rides,
+  });
+});
+
 export const RideController = {
   createRide,
+  getRideById,
   getMyRides,
   acceptRide,
   completeRide,
   cancelRide,
   getAvailableRides,
   getAllRides,
+  getRiderRideHistory,
+  getDriverRideHistory,
 };

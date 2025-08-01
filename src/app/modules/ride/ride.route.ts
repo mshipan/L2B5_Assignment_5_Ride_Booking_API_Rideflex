@@ -14,6 +14,24 @@ router.post(
   RideController.createRide
 );
 
+router.get(
+  "/rider-history",
+  checkAuth(Role.RIDER),
+  RideController.getRiderRideHistory
+);
+
+router.get(
+  "/driver-history",
+  checkAuth(Role.DRIVER),
+  RideController.getDriverRideHistory
+);
+
+router.get(
+  "/:id",
+  checkAuth(Role.ADMIN, Role.DRIVER, Role.RIDER),
+  RideController.getRideById
+);
+
 router.get("/my-rides", checkAuth(Role.RIDER), RideController.getMyRides);
 
 router.patch("/:id/accept", checkAuth(Role.DRIVER), RideController.acceptRide);

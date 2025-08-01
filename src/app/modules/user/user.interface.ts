@@ -36,16 +36,9 @@ export interface IUser {
   isActive?: IsActive;
   isVerified: boolean;
   auths: IAuthProvider[];
-}
 
-export interface IRider extends IUser {
-  role: Role.RIDER;
   requestedRideId?: string | null;
   rideHistory?: Types.ObjectId[];
-}
-
-export interface IDriver extends IUser {
-  role: Role.DRIVER;
   approvalStatus?: ApprovalStatus;
   isOnline?: boolean;
   currentRideId?: string | null;
@@ -55,8 +48,4 @@ export interface IDriver extends IUser {
     model: string;
     plateNumber: string;
   };
-}
-
-export interface IAdmin extends IUser {
-  role: Role.ADMIN;
 }

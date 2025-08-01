@@ -1,13 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import AppError from "../../errorHelpers/AppError";
-import {
-  ApprovalStatus,
-  IAuthProvider,
-  IDriver,
-  IRider,
-  IUser,
-  Role,
-} from "./user.interface";
+import { ApprovalStatus, IAuthProvider, IUser, Role } from "./user.interface";
 import { User } from "./user.model";
 import httpStatus from "http-status-codes";
 import bcrypt from "bcryptjs";
@@ -39,7 +31,7 @@ const createUser = async (payload: Partial<IUser>) => {
     providerId: email as string,
   };
 
-  const commonUser = {
+  const userData: Partial<IUser> = {
     ...rest,
     email,
     password: hashedPassword,
@@ -47,32 +39,65 @@ const createUser = async (payload: Partial<IUser>) => {
     auths: [authProvider],
   };
 
-  let finalData: any = { ...commonUser };
-
-  if (role === Role.RIDER) {
-    const riderData: IRider = {
-      ...finalData,
-      requestedRideId: null,
-      rideHistory: [],
-    };
-    finalData = riderData;
-  } else if (role === Role.DRIVER) {
-    const driverData: IDriver = {
-      ...finalData,
-      approvalStatus: ApprovalStatus.PENDING,
-      isOnline: false,
-      currentRideId: null,
-      acceptedRideHistory: [],
-      earnings: 0,
-      vehicleInfo: (payload as Partial<IDriver>).vehicleInfo,
-    };
-    finalData = driverData;
-  }
-
-  const user = new User(finalData);
+  const user = new User(userData);
   await user.save();
 
   return user;
 };
 
-export const UserServices = { createUser };
+const toggleDriverAvailablility = async (
+  driverId: string,
+  isOnline: boolean
+) => {
+  const driver = await User.findOne({
+    _id: driverId,
+    role: Role.DRIVER,
+    isDeleted: false,
+  });
+
+  if (!driver) {
+    throw new AppError(httpStatus.NOT_FOUND, "Driver not found.");
+  }
+
+  if (driver.approvalStatus !== ApprovalStatus.APPROVED) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Driver not approved to go online."
+    );
+  }
+
+  driver.isOnline = isOnline;
+  await driver.save();
+
+  return driver;
+};
+
+const updateUserApprovalStatus = async (
+  userId: string,
+  approvalStatus: ApprovalStatus
+) => {
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found.");
+  }
+
+  if (user.role !== Role.DRIVER && user.role !== Role.RIDER) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Approval status can only be changed for Drivers or Riders."
+    );
+  }
+
+  user.approvalStatus = approvalStatus;
+
+  await user.save();
+
+  return user;
+};
+
+export const UserServices = {
+  createUser,
+  toggleDriverAvailablility,
+  updateUserApprovalStatus,
+};

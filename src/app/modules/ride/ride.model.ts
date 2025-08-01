@@ -8,6 +8,8 @@ const rideSchema = new Schema<IRide>(
     pickupLocation: { type: String, required: true },
     destinationLocation: { type: String, required: true },
     fare: { type: Number, default: 0 },
+    distanceInKm: { type: Number, default: 0 },
+    durationInMinutes: { type: Number, default: 0 },
     status: {
       type: String,
       enum: Object.values(RideStatus),

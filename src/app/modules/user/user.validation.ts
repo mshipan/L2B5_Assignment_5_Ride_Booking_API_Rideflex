@@ -2,7 +2,6 @@ import { z } from "zod";
 import { ApprovalStatus, IsActive, Role } from "./user.interface";
 
 export const createUserZodSchema = z.object({
-  // ✅ Basic Info
   name: z
     .string({
       required_error: "Name is required.",
@@ -54,7 +53,6 @@ export const createUserZodSchema = z.object({
     .max(200, { message: "Address can't exceed 200 characters." })
     .optional(),
 
-  // ✅ Status Flags
   isDeleted: z
     .boolean({
       invalid_type_error: "isDeleted must be a boolean.",
@@ -74,7 +72,6 @@ export const createUserZodSchema = z.object({
     })
     .optional(),
 
-  // ✅ Role & Auth
   role: z
     .enum([Role.SUPER_ADMIN, Role.ADMIN, Role.RIDER, Role.DRIVER], {
       required_error: "Role is required.",
@@ -99,7 +96,6 @@ export const createUserZodSchema = z.object({
     .min(1, { message: "At least one auth provider is required." })
     .optional(),
 
-  // ✅ Rider-Specific Fields
   requestedRides: z
     .array(
       z.string({
@@ -108,7 +104,6 @@ export const createUserZodSchema = z.object({
     )
     .optional(),
 
-  // ✅ Driver-Specific Fields
   acceptedRides: z
     .array(
       z.string({
@@ -149,4 +144,12 @@ export const createUserZodSchema = z.object({
       }
     )
     .optional(),
+});
+
+export const updateDriverOnlineStatusZodSchema = z.object({
+  isOnline: z.boolean(),
+});
+
+export const updateApprovalStatusZodSchema = z.object({
+  approvalStatus: z.enum(Object.values(ApprovalStatus) as [string]),
 });

@@ -1,4 +1,5 @@
 import { z } from "zod";
+
 export const createRideZodSchema = z.object({
   pickupLocation: z.string({
     invalid_type_error: "Pickup Location must be a string.",
