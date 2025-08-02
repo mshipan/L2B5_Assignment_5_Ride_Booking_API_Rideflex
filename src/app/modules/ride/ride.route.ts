@@ -27,12 +27,20 @@ router.get(
 );
 
 router.get(
+  "/available",
+  checkAuth(Role.DRIVER),
+  RideController.getAvailableRides
+);
+
+router.get("/my-rides", checkAuth(Role.RIDER), RideController.getMyRides);
+
+router.get("/all-rides", checkAuth(Role.ADMIN), RideController.getAllRides);
+
+router.get(
   "/:id",
   checkAuth(Role.ADMIN, Role.DRIVER, Role.RIDER),
   RideController.getRideById
 );
-
-router.get("/my-rides", checkAuth(Role.RIDER), RideController.getMyRides);
 
 router.patch("/:id/accept", checkAuth(Role.DRIVER), RideController.acceptRide);
 
@@ -47,13 +55,5 @@ router.patch(
   checkAuth(Role.RIDER, Role.DRIVER),
   RideController.cancelRide
 );
-
-router.get(
-  "/available",
-  checkAuth(Role.DRIVER),
-  RideController.getAvailableRides
-);
-
-router.get("/all-rides", checkAuth(Role.ADMIN), RideController.getAllRides);
 
 export const RideRoutes = router;
