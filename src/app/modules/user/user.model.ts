@@ -15,6 +15,14 @@ const authProviderSchema = new Schema<IAuthProvider>(
   { versionKey: false, _id: false }
 );
 
+const vehicleInfoSchema = new Schema(
+  {
+    model: { type: String, default: "" },
+    plateNumber: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
 const userSchema = new Schema<IUser>(
   {
     name: { type: String, required: true },
@@ -37,6 +45,7 @@ const userSchema = new Schema<IUser>(
     },
     isOnline: { type: Boolean, default: false },
     auths: [authProviderSchema],
+    vehicleInfo: { type: vehicleInfoSchema, default: {} },
   },
   {
     timestamps: true,

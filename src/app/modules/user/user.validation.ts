@@ -146,10 +146,46 @@ export const createUserZodSchema = z.object({
     .optional(),
 });
 
+export const updateProfileZodSchema = z.object({
+  name: z.string().min(2).max(50).optional(),
+  email: z.string().email().optional(),
+  phone: z
+    .string()
+    .regex(/^(?:\+8801\d{9}|01\d{9})$/, {
+      message:
+        "Phone number must be valid for Bangladesh. Format: +8801XXXXXXXXX or 01XXXXXXXXX",
+    })
+    .optional(),
+  address: z.string().max(200).optional(),
+  isActive: z.nativeEnum(IsActive).optional(),
+  vehicleInfo: z
+    .object({
+      model: z.string().optional(),
+      plateNumber: z.string().optional(),
+    })
+    .optional(),
+});
+
 export const updateDriverOnlineStatusZodSchema = z.object({
   isOnline: z.boolean(),
 });
 
 export const updateApprovalStatusZodSchema = z.object({
   approvalStatus: z.enum(Object.values(ApprovalStatus) as [string]),
+});
+
+export const getUsersQueryZodSchema = z.object({
+  role: z.nativeEnum(Role).optional(),
+  isActive: z.nativeEnum(IsActive).optional(),
+  search: z.string().optional(),
+  page: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().positive().max(100).optional(),
+  sortBy: z.enum(["createdAt", "name", "email"]).optional(),
+  sortOrder: z.enum(["asc", "desc"]).optional(),
+});
+
+export const updateUserIsActiveZodSchema = z.object({
+  isActive: z.nativeEnum(IsActive, {
+    required_error: "isActive is required",
+  }),
 });

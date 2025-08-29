@@ -37,12 +37,32 @@ router.get("/my-rides", checkAuth(Role.RIDER), RideController.getMyRides);
 router.get("/all-rides", checkAuth(Role.ADMIN), RideController.getAllRides);
 
 router.get(
+  "/driver-earnings",
+  checkAuth(Role.DRIVER),
+  RideController.getDriverEarnings
+);
+
+router.post(
+  "/estimate-fare",
+  checkAuth(Role.RIDER),
+  RideController.estimateFare
+);
+
+router.get(
   "/:id",
   checkAuth(Role.ADMIN, Role.DRIVER, Role.RIDER),
   RideController.getRideById
 );
 
 router.patch("/:id/accept", checkAuth(Role.DRIVER), RideController.acceptRide);
+
+router.patch("/:id/pickup", checkAuth(Role.DRIVER), RideController.pickupRide);
+
+router.patch(
+  "/:id/start-transit",
+  checkAuth(Role.DRIVER),
+  RideController.startTransit
+);
 
 router.patch(
   "/:id/complete",
@@ -54,6 +74,12 @@ router.patch(
   "/:id/cancel",
   checkAuth(Role.RIDER, Role.DRIVER),
   RideController.cancelRide
+);
+
+router.patch(
+  "/:id/cancel-by-driver",
+  checkAuth(Role.DRIVER),
+  RideController.cancelRideByDriver
 );
 
 export const RideRoutes = router;

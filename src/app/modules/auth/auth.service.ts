@@ -8,6 +8,8 @@ import {
   createNewAccessTokenWithRefreshToken,
   createUserTokens,
 } from "../../utils/userTokens";
+import { JwtPayload } from "jsonwebtoken";
+import { envVars } from "../../config/env";
 
 const credentialsLogin = async (payload: Partial<IUser>) => {
   const { email, password } = payload;
@@ -48,7 +50,44 @@ const getNewAccessToken = async (refreshToken: string) => {
   };
 };
 
+const resetPassword = async (
+  payload: {
+    currentPassword: string;
+    newPassword: string;
+  },
+  decodedToken: JwtPayload
+) => {
+  const { currentPassword, newPassword } = payload;
+
+  const isUserExist = await User.findById(decodedToken.userId);
+  if (!isUserExist) {
+    throw new AppError(httpStatus.NOT_FOUND, "User does not exist");
+  }
+
+  const isMatch = bcrypt.compare(
+    currentPassword,
+    isUserExist.password as string
+  );
+
+  if (!isMatch) {
+    throw new AppError(
+      httpStatus.UNAUTHORIZED,
+      "Current password is incorrect"
+    );
+  }
+
+  const hashedPassword = await bcrypt.hash(
+    newPassword,
+    Number(envVars.BCRYPT_SALT_ROUND)
+  );
+
+  isUserExist.password = hashedPassword;
+
+  await isUserExist.save();
+};
+
 export const AuthServices = {
   credentialsLogin,
   getNewAccessToken,
+  resetPassword,
 };

@@ -101,6 +101,20 @@ const getMyRides = async (userId: string, role: string) => {
 };
 
 const acceptRide = async (rideId: string, driverId: string) => {
+  const existingRide = await Ride.findOne({
+    driver: driverId,
+    status: {
+      $in: [RideStatus.ACCEPTED, RideStatus.PICKED_UP, RideStatus.IN_TRANSIT],
+    },
+  });
+
+  if (existingRide) {
+    throw new AppError(
+      httpStatus.CONFLICT,
+      "You already have an ongoing ride."
+    );
+  }
+
   const ride = await Ride.findById(rideId);
 
   if (!ride) {
@@ -115,11 +129,59 @@ const acceptRide = async (rideId: string, driverId: string) => {
   }
 
   ride.driver = new Types.ObjectId(driverId);
-  ride.status = RideStatus.IN_TRANSIT;
-  ride.pickedUpAt = new Date();
+  ride.status = RideStatus.ACCEPTED;
+  ride.accepteddAt = new Date();
 
   await ride.save();
 
+  return ride;
+};
+
+const pickupRide = async (rideId: string, driverId: string) => {
+  const ride = await Ride.findById(rideId);
+
+  if (!ride) throw new AppError(httpStatus.NOT_FOUND, "Ride not found.");
+
+  if (ride.driver?.toString() !== driverId) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "You are not assigned to this ride."
+    );
+  }
+
+  if (ride.status !== RideStatus.ACCEPTED) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Ride is not ready to be picked up."
+    );
+  }
+
+  ride.status = RideStatus.PICKED_UP;
+  ride.pickedUpAt = new Date();
+
+  await ride.save();
+  return ride;
+};
+
+const startTransit = async (rideId: string, driverId: string) => {
+  const ride = await Ride.findById(rideId);
+  if (!ride) throw new AppError(httpStatus.NOT_FOUND, "Ride not found.");
+
+  if (ride.driver?.toString() !== driverId) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "You are not assigned to this ride."
+    );
+  }
+
+  if (ride.status !== RideStatus.PICKED_UP) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Ride is not picked up yet.");
+  }
+
+  ride.status = RideStatus.IN_TRANSIT;
+  ride.transitStartedAt = new Date();
+
+  await ride.save();
   return ride;
 };
 
@@ -207,9 +269,43 @@ const cancelRide = async (rideId: string, userId: string, role: string) => {
   return ride;
 };
 
+const cancelRideByDriver = async (rideId: string, driverId: string) => {
+  const ride = await Ride.findById(rideId);
+
+  if (!ride) {
+    throw new AppError(httpStatus.NOT_FOUND, "Ride not found.");
+  }
+
+  if (ride.driver?.toString() !== driverId.toString()) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "You are not authorized to cancel this ride"
+    );
+  }
+
+  if (
+    ride.status === RideStatus.PICKED_UP ||
+    ride.status === RideStatus.IN_TRANSIT ||
+    ride.status === RideStatus.COMPLETED
+  ) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "You cannot cancel a ride that is already in progress or completed"
+    );
+  }
+
+  ride.driver = null;
+  ride.status = RideStatus.REQUESTED;
+
+  await ride.save();
+
+  return ride;
+};
+
 const getAvailableRides = async () => {
   const rides = await Ride.find({ status: RideStatus.REQUESTED }).populate(
-    "rider"
+    "rider",
+    "name phone"
   );
 
   if (!rides.length) {
@@ -244,7 +340,7 @@ const getRiderRideHistory = async (riderId: string) => {
   }
 
   const rides = await Ride.find({ rider: riderId })
-    .populate("driver", "name email")
+    .populate("driver", "name email phone")
     .sort({ createdAt: -1 });
 
   return rides;
@@ -256,10 +352,57 @@ const getDriverRideHistory = async (driverId: string) => {
   }
 
   const rides = await Ride.find({ driver: driverId })
-    .populate("rider", "name email")
+    .populate("rider", "name email phone")
     .sort({ createdAt: -1 });
 
   return rides;
+};
+
+const getDriverEarnings = async (driverId: string) => {
+  if (!Types.ObjectId.isValid(driverId)) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Invalid driver ID.");
+  }
+
+  const completedRides = await Ride.find({
+    driver: driverId,
+    status: RideStatus.COMPLETED,
+  });
+
+  const totalEarnings = completedRides.reduce(
+    (sum, ride) => sum + (ride.fare || 0),
+    0
+  );
+
+  return {
+    totalEarnings,
+    completedRides,
+  };
+};
+
+const estimateFare = async (
+  pickupLocation: string,
+  destinationLocation: string
+) => {
+  if (!pickupLocation || !destinationLocation) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Pickup and destination locations are required."
+    );
+  }
+
+  if (pickupLocation.trim() === destinationLocation.trim()) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Pickup and destination locations must be different."
+    );
+  }
+
+  const distanceInKm = 10;
+  const durationInMinutes = 20;
+
+  const fare = calculateFare({ distanceInKm, durationInMinutes });
+
+  return { distanceInKm, durationInMinutes, estimatedFare: fare };
 };
 
 export const RideServices = {
@@ -267,10 +410,15 @@ export const RideServices = {
   getRideById,
   getMyRides,
   acceptRide,
+  pickupRide,
+  startTransit,
   completeRide,
   cancelRide,
+  cancelRideByDriver,
   getAvailableRides,
   getAllRides,
   getRiderRideHistory,
   getDriverRideHistory,
+  getDriverEarnings,
+  estimateFare,
 };

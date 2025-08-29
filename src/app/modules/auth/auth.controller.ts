@@ -9,6 +9,7 @@ import httpStatus from "http-status-codes";
 import AppError from "../../errorHelpers/AppError";
 import { AuthServices } from "./auth.service";
 import passport from "passport";
+import { JwtPayload } from "jsonwebtoken";
 
 const credentialsLogin = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -69,14 +70,14 @@ const logout = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     res.clearCookie("accessToken", {
       httpOnly: true,
-      secure: false,
-      sameSite: "lax",
+      secure: true,
+      sameSite: "none",
     });
 
     res.clearCookie("refreshToken", {
       httpOnly: true,
-      secure: false,
-      sameSite: "lax",
+      secure: true,
+      sameSite: "none",
     });
 
     sendResponse(res, {
@@ -88,8 +89,25 @@ const logout = catchAsync(
   }
 );
 
+const resetPassword = catchAsync(async (req: Request, res: Response) => {
+  const decodedToken = req.user;
+
+  await AuthServices.resetPassword(
+    req.body as { currentPassword: string; newPassword: string },
+    decodedToken as JwtPayload
+  );
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Password changed successfully",
+    data: null,
+  });
+});
+
 export const AuthControllers = {
   credentialsLogin,
   getNewAccessToken,
   logout,
+  resetPassword,
 };

@@ -71,6 +71,34 @@ const acceptRide = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const pickupRide = catchAsync(async (req: Request, res: Response) => {
+  const driver = req.user as JwtPayload;
+  const rideId = req.params.id;
+
+  const result = await RideServices.pickupRide(rideId, driver.userId);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Ride picked up successfully.",
+    data: result,
+  });
+});
+
+const startTransit = catchAsync(async (req: Request, res: Response) => {
+  const driver = req.user as JwtPayload;
+  const rideId = req.params.id;
+
+  const result = await RideServices.startTransit(rideId, driver.userId);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Ride is now in transit.",
+    data: result,
+  });
+});
+
 const completeRide = catchAsync(async (req: Request, res: Response) => {
   const driver = req.user as JwtPayload;
 
@@ -96,6 +124,20 @@ const cancelRide = catchAsync(async (req: Request, res: Response) => {
     success: true,
     statusCode: httpStatus.OK,
     message: "Ride canclled successfully.",
+    data: result,
+  });
+});
+
+const cancelRideByDriver = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user as JwtPayload;
+  const rideId = req.params.id;
+
+  const result = await RideServices.cancelRideByDriver(rideId, user.userId);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Ride cancelled by driver successfully.",
     data: result,
   });
 });
@@ -149,15 +191,49 @@ const getDriverRideHistory = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getDriverEarnings = catchAsync(async (req: Request, res: Response) => {
+  const driver = req.user as JwtPayload;
+
+  const result = await RideServices.getDriverEarnings(driver.userId);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Driver earnings retrieved successfully.",
+    data: result,
+  });
+});
+
+const estimateFare = catchAsync(async (req: Request, res: Response) => {
+  const { pickupLocation, destinationLocation } = req.body;
+
+  const result = await RideServices.estimateFare(
+    pickupLocation,
+    destinationLocation
+  );
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Fare estimated successfully.",
+    data: result,
+  });
+});
+
 export const RideController = {
   createRide,
   getRideById,
   getMyRides,
   acceptRide,
+  pickupRide,
+  startTransit,
   completeRide,
   cancelRide,
+  cancelRideByDriver,
   getAvailableRides,
   getAllRides,
   getRiderRideHistory,
   getDriverRideHistory,
+  getDriverEarnings,
+  estimateFare,
 };
