@@ -181,13 +181,20 @@ const getRiderRideHistory = catchAsync(async (req: Request, res: Response) => {
 const getDriverRideHistory = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as JwtPayload;
 
-  const rides = await RideServices.getDriverRideHistory(user.userId);
+  const rides = await RideServices.getDriverRideHistory(user.userId, {
+    search: req.query.search as string | undefined,
+    page: req.query.page ? Number(req.query.page) : undefined,
+    limit: req.query.limit ? Number(req.query.limit) : undefined,
+    sortBy: req.query.sortBy as "createdAt" | "status" | undefined,
+    sortOrder: req.query.sortOrder as "asc" | "desc" | undefined,
+  });
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
     message: "Driver ride history retrieved successfully.",
-    data: rides,
+    data: rides.data,
+    meta: rides.meta,
   });
 });
 
@@ -220,6 +227,20 @@ const estimateFare = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getDriverDashboard = catchAsync(async (req: Request, res: Response) => {
+  const driver = req.user as JwtPayload;
+  const driverId = driver.userId;
+
+  const dashboard = await RideServices.getDriverDashboard(driverId);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Driver dashboard retrieved successfully",
+    data: dashboard,
+  });
+});
+
 export const RideController = {
   createRide,
   getRideById,
@@ -236,4 +257,5 @@ export const RideController = {
   getDriverRideHistory,
   getDriverEarnings,
   estimateFare,
+  getDriverDashboard,
 };

@@ -42,6 +42,12 @@ router.get(
   RideController.getDriverEarnings
 );
 
+router.get(
+  "/driver-dashboard",
+  checkAuth(Role.DRIVER),
+  RideController.getDriverDashboard
+);
+
 router.post(
   "/estimate-fare",
   checkAuth(Role.RIDER),

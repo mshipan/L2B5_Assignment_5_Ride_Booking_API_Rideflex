@@ -1,4 +1,4 @@
-import { isValidObjectId, Types } from "mongoose";
+import { FilterQuery, isValidObjectId, SortOrder, Types } from "mongoose";
 import AppError from "../../errorHelpers/AppError";
 import { Role } from "../user/user.interface";
 import { IRide, RideStatus } from "./ride.interface";
@@ -7,6 +7,7 @@ import httpStatus from "http-status-codes";
 import { calculateFare } from "../../utils/calculateFare";
 import { JwtPayload } from "jsonwebtoken";
 import { User } from "../user/user.model";
+import dayjs from "dayjs";
 
 const createRide = async (
   riderId: string,
@@ -346,16 +347,60 @@ const getRiderRideHistory = async (riderId: string) => {
   return rides;
 };
 
-const getDriverRideHistory = async (driverId: string) => {
+const getDriverRideHistory = async (
+  driverId: string,
+  query: {
+    search?: string;
+    page?: number;
+    limit?: number;
+    sortBy?: "createdAt" | "status";
+    sortOrder?: "asc" | "desc";
+  }
+) => {
   if (!Types.ObjectId.isValid(driverId)) {
     throw new AppError(httpStatus.BAD_REQUEST, "Invalid driver ID.");
   }
 
-  const rides = await Ride.find({ driver: driverId })
-    .populate("rider", "name email phone")
-    .sort({ createdAt: -1 });
+  const {
+    search,
+    page = 1,
+    limit = 10,
+    sortBy = "createdAt",
+    sortOrder = "desc",
+  } = query;
 
-  return rides;
+  const filter: FilterQuery<typeof Ride> = { driver: driverId };
+
+  if (search) {
+    filter.$or = [
+      { pickupLocation: new RegExp(search, "i") },
+      { destinationLocation: new RegExp(search, "i") },
+      { status: new RegExp(search, "i") },
+    ];
+  }
+
+  const sort: Record<string, SortOrder> = {
+    [sortBy]: sortOrder === "asc" ? 1 : -1,
+  };
+
+  const [data, total] = await Promise.all([
+    Ride.find(filter)
+      .populate("rider", "name email phone")
+      .sort(sort)
+      .skip((page - 1) * limit)
+      .limit(limit),
+    Ride.countDocuments(filter),
+  ]);
+
+  return {
+    meta: {
+      page,
+      limit,
+      total,
+      totalPage: Math.ceil(total / limit),
+    },
+    data,
+  };
 };
 
 const getDriverEarnings = async (driverId: string) => {
@@ -405,6 +450,100 @@ const estimateFare = async (
   return { distanceInKm, durationInMinutes, estimatedFare: fare };
 };
 
+const getDriverDashboard = async (driverId: string) => {
+  if (!isValidObjectId(driverId)) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Invalid driver ID");
+  }
+
+  const driver = await User.findById(driverId);
+
+  if (!driver || driver.role !== Role.DRIVER) {
+    throw new AppError(httpStatus.NOT_FOUND, "Driver not found");
+  }
+
+  const totalRides = await Ride.countDocuments({ driver: driverId });
+
+  const completedRides = await Ride.countDocuments({
+    driver: driverId,
+    status: "COMPLETED",
+  });
+
+  const cancelledRides = await Ride.countDocuments({
+    driver: driverId,
+    status: "CANCELLED",
+  });
+
+  const activeRides = await Ride.countDocuments({
+    driver: driverId,
+    status: { $in: ["ACCEPTED", "PICKED_UP", "IN_TRANSIT"] },
+  });
+
+  const todayStart = dayjs().startOf("day").toDate();
+  const weekStart = dayjs().startOf("week").toDate();
+  const monthStart = dayjs().startOf("month").toDate();
+
+  const [todayEarnings, weekEarnings, monthEarnings, totalEarnings] =
+    await Promise.all([
+      Ride.aggregate([
+        {
+          $match: {
+            driver: driver._id,
+            status: "COMPLETED",
+            createdAt: { $gte: todayStart },
+          },
+        },
+        { $group: { _id: null, sum: { $sum: "$fare" } } },
+      ]),
+      Ride.aggregate([
+        {
+          $match: {
+            driver: driver._id,
+            status: "COMPLETED",
+            createdAt: { $gte: weekStart },
+          },
+        },
+        { $group: { _id: null, sum: { $sum: "$fare" } } },
+      ]),
+      Ride.aggregate([
+        {
+          $match: {
+            driver: driver._id,
+            status: "COMPLETED",
+            createdAt: { $gte: monthStart },
+          },
+        },
+        { $group: { _id: null, sum: { $sum: "$fare" } } },
+      ]),
+      Ride.aggregate([
+        {
+          $match: {
+            driver: driver._id,
+            status: "COMPLETED",
+          },
+        },
+        { $group: { _id: null, sum: { $sum: "$fare" } } },
+      ]),
+    ]);
+
+  return {
+    earningsSummary: {
+      today: todayEarnings[0]?.sum || 0,
+      week: weekEarnings[0]?.sum || 0,
+      month: monthEarnings[0]?.sum || 0,
+      total: totalEarnings[0]?.sum || 0,
+    },
+    rideSummary: {
+      total: totalRides,
+      completed: completedRides,
+      cancelled: cancelledRides,
+      active: activeRides,
+    },
+    driverStatus: {
+      isOnline: driver.isOnline ?? false,
+    },
+  };
+};
+
 export const RideServices = {
   createRide,
   getRideById,
@@ -421,4 +560,5 @@ export const RideServices = {
   getDriverRideHistory,
   getDriverEarnings,
   estimateFare,
+  getDriverDashboard,
 };
