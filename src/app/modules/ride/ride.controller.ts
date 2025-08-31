@@ -241,6 +241,34 @@ const getDriverDashboard = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getRiderDashboard = catchAsync(async (req: Request, res: Response) => {
+  const rider = req.user as JwtPayload;
+  const riderId = rider.userId;
+
+  const dashboard = await RideServices.getRiderDashboard(riderId);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Rider dashboard fetched successfully.",
+    data: dashboard,
+  });
+});
+
+const getAdminDashboard = catchAsync(async (req: Request, res: Response) => {
+  const admin = req.user as JwtPayload;
+  const adminId = admin.userId;
+
+  const dashboard = await RideServices.getAdminDashboard(adminId);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Admin dashboard fetched successfully.",
+    data: dashboard,
+  });
+});
+
 export const RideController = {
   createRide,
   getRideById,
@@ -258,4 +286,6 @@ export const RideController = {
   getDriverEarnings,
   estimateFare,
   getDriverDashboard,
+  getRiderDashboard,
+  getAdminDashboard,
 };

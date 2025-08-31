@@ -544,6 +544,247 @@ const getDriverDashboard = async (driverId: string) => {
   };
 };
 
+const getRiderDashboard = async (riderId: string) => {
+  if (!isValidObjectId(riderId)) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Invalid rider ID");
+  }
+
+  const rider = await User.findById(riderId);
+
+  if (!rider || rider.role !== Role.RIDER) {
+    throw new AppError(httpStatus.NOT_FOUND, "Rider not found");
+  }
+
+  const totalRides = await Ride.countDocuments({ rider: riderId });
+
+  const completedRides = await Ride.countDocuments({
+    rider: riderId,
+    status: "COMPLETED",
+  });
+
+  const cancelledRides = await Ride.countDocuments({
+    rider: riderId,
+    status: "CANCELLED",
+  });
+
+  const activeRides = await Ride.countDocuments({
+    rider: riderId,
+    status: { $in: ["REQUESTED", "ACCEPTED", "IN_TRANSIT"] },
+  });
+
+  const todayStart = dayjs().startOf("day").toDate();
+  const weekStart = dayjs().startOf("week").toDate();
+  const monthStart = dayjs().startOf("month").toDate();
+
+  const [todaySpending, weekSpending, monthSpending, totalSpending] =
+    await Promise.all([
+      Ride.aggregate([
+        {
+          $match: {
+            rider: rider._id,
+            status: "COMPLETED",
+            createdAt: { $gte: todayStart },
+          },
+        },
+        { $group: { _id: null, sum: { $sum: "$fare" } } },
+      ]),
+      Ride.aggregate([
+        {
+          $match: {
+            rider: rider._id,
+            status: "COMPLETED",
+            createdAt: { $gte: weekStart },
+          },
+        },
+        { $group: { _id: null, sum: { $sum: "$fare" } } },
+      ]),
+      Ride.aggregate([
+        {
+          $match: {
+            rider: rider._id,
+            status: "COMPLETED",
+            createdAt: { $gte: monthStart },
+          },
+        },
+        { $group: { _id: null, sum: { $sum: "$fare" } } },
+      ]),
+      Ride.aggregate([
+        {
+          $match: { rider: rider._id, status: "COMPLETED" },
+        },
+        { $group: { _id: null, sum: { $sum: "$fare" } } },
+      ]),
+    ]);
+
+  const recentRides = await Ride.find({ rider: riderId })
+    .populate("driver", "name email phone")
+    .sort({ createdAt: -1 })
+    .limit(5);
+
+  const activeRide = await Ride.findOne({
+    rider: riderId,
+    status: { $in: ["REQUESTED", "ACCEPTED", "IN_TRANSIT"] },
+  }).populate("driver", "name email phone");
+
+  return {
+    rideSummary: {
+      total: totalRides,
+      completed: completedRides,
+      cancelled: cancelledRides,
+      active: activeRides,
+    },
+    spendingSummary: {
+      today: todaySpending[0]?.sum || 0,
+      week: weekSpending[0]?.sum || 0,
+      month: monthSpending[0]?.sum || 0,
+      total: totalSpending[0]?.sum || 0,
+    },
+    recentActivity: recentRides,
+    riderStatus: {
+      inActiveRide: !!activeRide,
+      activeRideId: activeRide?._id || null,
+    },
+  };
+};
+
+const getAdminDashboard = async (adminId: string) => {
+  const admin = await User.findById(adminId);
+  if (!admin || admin.role !== Role.ADMIN) {
+    throw new AppError(httpStatus.FORBIDDEN, "Not authorized as Admin.");
+  }
+
+  const totalRiders = await User.countDocuments({ role: Role.RIDER });
+  const totalDrivers = await User.countDocuments({ role: Role.DRIVER });
+
+  const activeDrivers = await User.countDocuments({
+    role: Role.DRIVER,
+    status: "APPROVED",
+  });
+
+  const suspendedDrivers = await User.countDocuments({
+    role: Role.DRIVER,
+    status: "SUSPENDED",
+  });
+
+  const blockedRiders = await User.countDocuments({
+    role: Role.RIDER,
+    status: "BLOCKED",
+  });
+
+  const totalRides = await Ride.countDocuments();
+  const completedRides = await Ride.countDocuments({ status: "COMPLETED" });
+  const cancelledRides = await Ride.countDocuments({ status: "CANCELLED" });
+  const ongoingRides = await Ride.countDocuments({
+    status: { $in: ["REQUESTED", "ACCEPTED", "IN_TRANSIT"] },
+  });
+
+  const todayStart = dayjs().startOf("day").toDate();
+  const weekStart = dayjs().startOf("week").toDate();
+  const monthStart = dayjs().startOf("month").toDate();
+
+  const [todayRevenue, weekRevenue, monthRevenue, totalRevenue] =
+    await Promise.all([
+      Ride.aggregate([
+        {
+          $match: {
+            status: "COMPLETED",
+            createdAt: { $gte: todayStart },
+          },
+        },
+        { $group: { _id: null, sum: { $sum: "$fare" } } },
+      ]),
+      Ride.aggregate([
+        {
+          $match: {
+            status: "COMPLETED",
+            createdAt: { $gte: weekStart },
+          },
+        },
+        { $group: { _id: null, sum: { $sum: "$fare" } } },
+      ]),
+      Ride.aggregate([
+        {
+          $match: {
+            status: "COMPLETED",
+            createdAt: { $gte: monthStart },
+          },
+        },
+        { $group: { _id: null, sum: { $sum: "$fare" } } },
+      ]),
+      Ride.aggregate([
+        { $match: { status: "COMPLETED" } },
+        { $group: { _id: null, sum: { $sum: "$fare" } } },
+      ]),
+    ]);
+
+  const topDriversByRides = await Ride.aggregate([
+    { $match: { status: "COMPLETED" } },
+    { $group: { _id: "$driver", rides: { $sum: 1 } } },
+    { $sort: { rides: -1 } },
+    { $limit: 5 },
+    {
+      $lookup: {
+        from: "users",
+        localField: "_id",
+        foreignField: "_id",
+        as: "driver",
+      },
+    },
+    { $unwind: "$driver" },
+    { $project: { "driver.name": 1, rides: 1 } },
+  ]);
+
+  const topDriversByEarnings = await Ride.aggregate([
+    { $match: { status: "COMPLETED" } },
+    { $group: { _id: "$driver", earnings: { $sum: "$fare" } } },
+    { $sort: { earnings: -1 } },
+    { $limit: 5 },
+    {
+      $lookup: {
+        from: "users",
+        localField: "_id",
+        foreignField: "_id",
+        as: "driver",
+      },
+    },
+    { $unwind: "$driver" },
+    { $project: { "driver.name": 1, earnings: 1 } },
+  ]);
+
+  const recentRides = await Ride.find()
+    .populate("rider", "name email")
+    .populate("driver", "name email")
+    .sort({ createdAt: -1 })
+    .limit(5);
+
+  return {
+    userSummary: {
+      totalRiders,
+      totalDrivers,
+      activeDrivers,
+      suspendedDrivers,
+      blockedRiders,
+    },
+    rideSummary: {
+      totalRides,
+      completedRides,
+      cancelledRides,
+      ongoingRides,
+    },
+    revenueSummary: {
+      today: todayRevenue[0]?.sum || 0,
+      week: weekRevenue[0]?.sum || 0,
+      month: monthRevenue[0]?.sum || 0,
+      total: totalRevenue[0]?.sum || 0,
+    },
+    driverActivity: {
+      topDriversByRides,
+      topDriversByEarnings,
+    },
+    recentActivity: recentRides,
+  };
+};
+
 export const RideServices = {
   createRide,
   getRideById,
@@ -561,4 +802,6 @@ export const RideServices = {
   getDriverEarnings,
   estimateFare,
   getDriverDashboard,
+  getRiderDashboard,
+  getAdminDashboard,
 };

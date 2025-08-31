@@ -43,6 +43,18 @@ router.get(
 );
 
 router.get(
+  "/admin-dashboard",
+  checkAuth(Role.ADMIN),
+  RideController.getAdminDashboard
+);
+
+router.get(
+  "/rider-dashboard",
+  checkAuth(Role.RIDER),
+  RideController.getRiderDashboard
+);
+
+router.get(
   "/driver-dashboard",
   checkAuth(Role.DRIVER),
   RideController.getDriverDashboard
