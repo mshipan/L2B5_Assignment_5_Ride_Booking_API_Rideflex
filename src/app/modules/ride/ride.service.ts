@@ -54,11 +54,19 @@ const createRide = async (
     );
   }
 
+  const distance = 0;
+  const duration = 0;
+
+  const fare = calculateFare({
+    distanceInKm: distance,
+    durationInMinutes: duration,
+  });
+
   const ride = await Ride.create({
     rider: riderId,
     pickupLocation: payload.pickupLocation,
     destinationLocation: payload.destinationLocation,
-    fare: payload.fare,
+    fare,
     status: RideStatus.REQUESTED,
     requestedAt: new Date(),
   });

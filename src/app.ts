@@ -14,7 +14,16 @@ const app: Application = express();
 dotenv.config();
 
 const corsConfig = {
-  origin: ["http://localhost:5173", "http://localhost:5174"],
+  origin: [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "https://rideflex-app.vercel.app",
+    "http://rideflex-app.vercel.app",
+    "https://www.rideflex-app.vercel.app",
+    "http://www.rideflex-app.vercel.app",
+    "www.rideflex-app.vercel.app",
+    "rideflex-app.vercel.app",
+  ],
   credentials: true,
   optionSuccessStatus: 200,
   methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
